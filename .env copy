@@ -1,0 +1,13 @@
+JWT_SECRET=supersecurejwtsecret
+JWT_EXPIRY=15m
+REFRESH_SECRET=superrefreshsecret
+REFRESH_EXPIRY=7d
+# RPC_URL=https://rpc.sepolia.org
+# RPC_URL=https://rpc-mumbai.maticvigil.com
+
+# RPC_URL
+
+# This was inserted by `prisma init`:
+# [object Promise]
+DATABASE_URL=
+SHADOW_DATABASE_URL=

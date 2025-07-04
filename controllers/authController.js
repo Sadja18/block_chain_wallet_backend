@@ -16,42 +16,71 @@ const generateTokens = (userId) => {
 };
 
 exports.register = async (req, res) => {
-    const { email, password } = req.body;
+    try {
+        const { email, password } = req.body;
+        console.log("Registering user:", email);
 
-    const existingUser = await prisma.user.findUnique({ where: { email } });
-    if (existingUser) {
-        return res.status(400).json({ message: "Email already registered" });
+        const existingUser = await prisma.user.findUnique({ where: { email } });
+        if (existingUser) {
+            return res.status(400).json({ message: "Email already registered" });
+        }
+
+        const hashed = await bcrypt.hash(password, 10);
+        const user = await prisma.user.create({
+            data: { email, password: hashed },
+        });
+
+        console.log("User registered:", user.id);
+
+        const tokens = generateTokens(user.id);
+        return res.status(201).json({ user: { id: user.id, email }, ...tokens });
+    } catch (error) {
+        console.error("Registration error:", error);
+        return res.status(500).json({
+            message: "Internal Server Error",
+            description: error?.message || "Unexpected error during registration",
+        });
     }
-
-    const hashed = await bcrypt.hash(password, 10);
-
-    const user = await prisma.user.create({
-        data: { email, password: hashed },
-    });
-
-    const tokens = generateTokens(user.id);
-    res.json({ user: { id: user.id, email }, ...tokens });
 };
 
 exports.login = async (req, res) => {
-    const { email, password } = req.body;
+    try {
+        const { email, password } = req.body;
+        console.log("Login attempt:", email);
 
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user || !(await bcrypt.compare(password, user.password))) {
-        return res.status(401).json({ message: "Invalid credentials" });
+        const user = await prisma.user.findUnique({ where: { email } });
+        if (!user || !(await bcrypt.compare(password, user.password))) {
+            return res.status(401).json({ message: "Invalid credentials" });
+        }
+
+        const tokens = generateTokens(user.id);
+        console.log("User logged in:", user.id);
+
+        return res.json({ user: { id: user.id, email }, ...tokens });
+    } catch (error) {
+        console.error("Login error:", error);
+        return res.status(500).json({
+            message: "Internal Server Error",
+            description: error?.message || "Unexpected error during login",
+        });
     }
-
-    const tokens = generateTokens(user.id);
-    res.json({ user: { id: user.id, email }, ...tokens });
 };
 
 exports.refreshToken = (req, res) => {
-    const { token } = req.body;
     try {
+        const { token } = req.body;
+        if (!token) {
+            return res.status(400).json({ message: "Missing refresh token" });
+        }
+
         const decoded = jwt.verify(token, process.env.REFRESH_SECRET);
         const tokens = generateTokens(decoded.userId);
-        res.json(tokens);
-    } catch (err) {
-        res.status(401).json({ message: "Invalid refresh token" });
+        return res.json(tokens);
+    } catch (error) {
+        console.error("Refresh token error:", error);
+        return res.status(401).json({
+            message: "Invalid refresh token",
+            description: error?.message || "Token verification failed",
+        });
     }
 };

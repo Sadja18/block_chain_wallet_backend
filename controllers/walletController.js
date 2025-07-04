@@ -109,6 +109,7 @@ exports.getBalance = async (req, res) => {
     try {
         // You can send address as query param or in body, e.g. ?address=0x...
         const address = req.query.address || req.body.address;
+        console.log("address ", address, req.query, req.body);
         if (!address) {
             return res.status(400).json({ message: "Wallet address is required" });
         }

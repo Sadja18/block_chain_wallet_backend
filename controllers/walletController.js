@@ -3,22 +3,16 @@ const { PrismaClient } = require("@prisma/client");
 const { ethers } = require("ethers");
 const prisma = new PrismaClient();
 
-// Use global RPC provider
 console.log("Using RPC URL:", process.env.RPC_URL);
 const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
-
-// sample
-// {
-//   "message": "Wallet created and saved",
-//   "wallet": {
-//     "address": "0x88114d1ea55a918c9Cc7e6A71cCc02Da6E1A3A0D",
-//     "privateKey": "0x8221eea99d098bfa2c117fe66f9737c8a9a8f6787744bb0bf6b0e2833295bc6c"
-//   }
-// }
 
 // POST /api/wallet/create
 exports.createWallet = async (req, res) => {
     try {
+        if (!req.userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
         const wallet = ethers.Wallet.createRandom();
         const connectedWallet = wallet.connect(provider);
 
@@ -34,11 +28,13 @@ exports.createWallet = async (req, res) => {
             data: {
                 address: wallet.address,
                 privateKey: wallet.privateKey,
-                userId: req.userId, // comes from JWT middleware
+                userId: req.userId,
             },
         });
 
-        res.json({
+        console.log("Wallet created for user:", req.userId, savedWallet.address);
+
+        res.status(201).json({
             message: "Wallet created and saved",
             wallet: {
                 address: savedWallet.address,
@@ -46,15 +42,24 @@ exports.createWallet = async (req, res) => {
             },
         });
     } catch (err) {
+        console.error("Wallet creation error:", err);
         res.status(500).json({ error: "Failed to create wallet", detail: err.message });
     }
 };
 
 // POST /api/wallet/import
 exports.importWallet = async (req, res) => {
-    const { address, privateKey } = req.body;
-
     try {
+        const { address, privateKey } = req.body;
+
+        if (!req.userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        if (!address || !privateKey) {
+            return res.status(400).json({ message: "Address and privateKey are required" });
+        }
+
         const exists = await prisma.wallet.findUnique({ where: { address } });
 
         if (exists) {
@@ -74,63 +79,58 @@ exports.importWallet = async (req, res) => {
             },
         });
 
-        res.json({ message: "Wallet imported", wallet: { address } });
+        console.log("Wallet imported:", savedWallet.address);
+
+        res.status(201).json({ message: "Wallet imported", wallet: { address } });
     } catch (err) {
+        console.error("Wallet import error:", err);
         res.status(500).json({ error: "Import failed", detail: err.message });
     }
 };
 
-// sample
-// [
-//   {
-//     "id": 1,
-//     "address": "0x88114d1ea55a918c9Cc7e6A71cCc02Da6E1A3A0D",
-//     "createdAt": "2025-07-04T05:32:26.036Z"
-//   }
-// ]
 // GET /api/wallet/my
 exports.getMyWallets = async (req, res) => {
-    const wallets = await prisma.wallet.findMany({
-        where: { userId: req.userId },
-        select: { id: true, address: true, createdAt: true },
-    });
+    try {
+        if (!req.userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
 
-    res.json(wallets);
+        const wallets = await prisma.wallet.findMany({
+            where: { userId: req.userId },
+            select: { id: true, address: true, createdAt: true },
+        });
+
+        res.json(wallets);
+    } catch (err) {
+        console.error("Fetching wallets failed:", err);
+        res.status(500).json({ message: "Failed to fetch wallets", detail: err.message });
+    }
 };
 
 // GET /api/wallet/balance
-// Accept address as query param or in request body
-// sample
-// {
-//     "address": "0x88114d1ea55a918c9Cc7e6A71cCc02Da6E1A3A0D",
-//     "balance": "0.0"
-// }
 exports.getBalance = async (req, res) => {
     try {
-        // You can send address as query param or in body, e.g. ?address=0x...
         const address = req.query.address || req.body.address;
-        console.log("address ", address, req.query, req.body);
+
         if (!address) {
             return res.status(400).json({ message: "Wallet address is required" });
         }
 
-        // Validate that the address is a valid Ethereum address
         if (!ethers.isAddress(address)) {
             return res.status(400).json({ message: "Invalid Ethereum address" });
         }
 
-        // Use global provider from your setup
         const balanceWei = await provider.getBalance(address);
-
-        // Convert balance from Wei to ETH string
         const balanceEth = ethers.formatEther(balanceWei);
 
         res.json({ address, balance: balanceEth });
     } catch (err) {
+        console.error("Fetching balance error:", err);
         res.status(500).json({ message: "Failed to fetch balance", detail: err.message });
     }
 };
 
+// Stub for /api/wallet/send
 exports.sendTransaction = async (req, res) => {
     res.status(200).json({ message: "Send transaction endpoint not implemented yet." });
 };

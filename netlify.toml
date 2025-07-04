@@ -1,0 +1,8 @@
+[functions]
+  external_node_modules = ["express", "@prisma/client","bcryptjs", "cookie-parse", "cors", "debug", "dotenv", "ethers", "jsonwebtoken", "morgan", "pg", "prisma"]
+  node_bundler = "esbuild"
+[[redirects]]
+  force = true
+  from = "/*"
+  status = 200
+  to = "/.netlify/functions/:splat"

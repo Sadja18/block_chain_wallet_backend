@@ -29,7 +29,7 @@ Backend API for GoPay wallet management using Node.js, Express, Prisma, and Ethe
 
 ```bash
 git clone https://github.com/Sadja18/block_chain_wallet_backend.git
-cd bepay-backend
+cd block_chain_wallet_backend
 ```
 
 ### 2. Install dependencies
